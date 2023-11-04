@@ -1,0 +1,117 @@
+import torch
+import requests
+from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+from io import BytesIO
+from diffusers import StableDiffusionImg2ImgPipeline
+import os
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def generate_images(init_image, num_generated_images, prompt):
+    pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+        "nitrosocke/Ghibli-Diffusion", torch_dtype=torch.float16, use_safetensors=True
+    ).to(device)
+
+    generated_images = []
+
+    for i in range(num_generated_images):
+        # Vary parameters for diversity
+        strength = min(1.0, 0.6 + i * 0.1)  # Ensure strength is within [0.0, 1.0]
+        guidance_scale = 7.0 + i * 1.0  # Vary guidance_scale
+
+        generator = torch.Generator(device=device).manual_seed(1024 + i)  # Vary seed
+        generated_image = pipe(
+            prompt=prompt,
+            image=init_image,
+            strength=strength,
+            guidance_scale=guidance_scale,
+            generator=generator
+        ).images[0]
+
+        generated_images.append(generated_image)
+
+    return generated_images
+
+# URL of the input image (dog in this example)
+print("Enter image URL:")
+image_url = input()
+
+# Load and process the initial image
+response = requests.get(image_url)
+init_image = Image.open(BytesIO(response.content)).convert("RGB")
+init_image.thumbnail((768, 768))
+
+download_dir = None
+
+while True:
+    # Display the initial image
+    plt.imshow(np.asarray(init_image))
+    plt.axis('off')
+    plt.show()
+
+    # Set a specific prompt for different styles (update as needed)
+    print("Enter a prompt:")
+    prompt = input()
+
+    # Generate images based on the initial image and prompt
+    generated_images = generate_images(init_image, 3, prompt)
+
+    # Display the generated images and provide an option for the user to choose which image to save
+    print("Select an image to save (1, 2, or 3):")
+    for idx, generated_image in enumerate(generated_images):
+        plt.figure()
+        plt.imshow(np.asarray(generated_image))
+        plt.axis('off')
+        plt.title(f"Generated Image {idx + 1} - Prompt: {prompt}")
+        plt.show()
+
+    selected_image_idx = int(input("Select the image you found the best!"))
+    if 1 <= selected_image_idx <= len(generated_images):
+        selected_image = generated_images[selected_image_idx - 1]
+        print("Image selected.")
+
+    # Provide an option for the user to continue generating images
+    print("Do you want to continue generating images with the selected image? (yes/no):")
+    continue_generating = input().strip().lower()
+
+    if continue_generating != 'yes':
+        break
+
+    # Set the selected image as the new initial image
+    init_image = selected_image
+
+# Prompt the user to enter a directory for saving the generated images
+print("Enter the directory path to save the generated images:")
+download_dir = input().strip()
+
+# Create the chosen directory if it doesn't exist
+os.makedirs(download_dir, exist_ok=True)
+
+# Save the selected generated image to the chosen directory
+image_filename = f"selected_generated_image.png"
+image_path = os.path.join(download_dir, image_filename)
+selected_image.save(image_path)
+print(f"Selected generated image has been saved as 'selected_generated_image.png' in {download_dir}")
+
+# Provide download links for all generated images
+print("Download the generated images:")
+for idx, generated_image in enumerate(generated_images):
+    image_filename = f"generated_image_{idx + 1}.png"
+    download_link = os.path.join(download_dir, image_filename)
+    print(f"Download Image {idx + 1}: {download_link}")
+
+# Provide the option for the user to download the selected generated image
+print("Do you want to download the selected generated image? (yes/no):")
+download_selected_image = input().strip().lower()
+
+if download_selected_image == 'yes':
+    image_filename = f"selected_generated_image.png"
+    download_link = os.path.join(download_dir, image_filename)
+    print(f"Download the selected generated image: {download_link}")
+
+
+else:
+    print("Thank you for using ADGenix!")
+
