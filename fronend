@@ -1,0 +1,62 @@
+import streamlit as st
+
+
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+local_css("styles.css")
+
+st.markdown(
+    """
+    <style>
+    .centered-title {
+        text-align: center;
+        color: #a4d5db;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.title("Ad generating GenAI Model")
+st.subheader("How AI can revolutionize your advertising strategy")
+st.write(
+    "The benefits of using AI to generate ads, such as saving time, money, and resources, as well as increasing conversions, engagement, and brand awareness."
+)
+
+# User input for prompts
+prompt = st.text_input("Enter your prompt", "")
+negative_prompt = st.text_input("Enter a negative prompt", "")
+
+def generate_image(prompt, negative_prompt):
+    # Generate or load the image
+    # Example: st.image("ads.png", use_column_width=True, caption="Generated Image")
+    pass
+
+if st.button("Generate Image"):
+    generate_image(prompt, negative_prompt)
+
+st.subheader("Generated Output:")
+st.image("n.jpg", use_column_width=True, caption="Generated Image")
+
+with st.container():
+    st.markdown('<h1 class="centered-title">AdGenix</h1>', unsafe_allow_html=True)
+    st.subheader("How AI can revolutionize your advertising strategy")
+    st.write(
+        "The benefits of using AI to generate ads, such as saving time, money, and resources, as well as increasing conversions, engagement, and brand awareness."
+    )
+
+
+with st.container():
+    st.markdown(
+        """Introducing AdGenius.ai, your one-stop solution for creating captivating and personalized advertisements with the power of artificial intelligence. Our innovative platform combines cutting-edge AI technologies to craft stunning ads tailored to your unique needs. Here's what you can expect:
+1. Smart Ad Creation: AdGenius.ai leverages AI to automatically generate visually appealing and highly engaging advertisements.
+2. Targeted Audience: Our system analyzes data to pinpoint your ideal audience, ensuring your ads reach the right people at the right time.
+3. Multi-Platform Compatibility: Generate ads suitable for various platforms, from social media to web banners.
+4. Privacy Protection: Rest assured that your data is handled with utmost security and privacy.
+5. User-Friendly Interface: Enjoy an intuitive, user-friendly interface that empowers anyone to create professional ads effortlessly.
+
+Boost your advertising game with AdGenius.ai and experience the future of AI-driven ad generation. Start creating exceptional ads today!
+        """
+    )
