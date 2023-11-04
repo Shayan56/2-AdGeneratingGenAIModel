@@ -1,1 +1,1 @@
-# 2-AdGeneratingGenAIModel
+DOMAIN-GenAI
