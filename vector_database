@@ -1,0 +1,220 @@
+import os
+import requests
+
+import tqdm
+import httpimport
+import pinecone
+import numpy as np
+from PIL import Image
+
+import torch
+import torchvision
+
+DATA_DIRECTORY = 'tmp'
+INDEX_NAME = 'image-search'
+INDEX_DIMENSION = 1000
+BATCH_SIZE=200
+
+def preprocess(image):
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        # Add other necessary transformations here
+    ])
+    return transform(image)
+
+
+# Loading datasets
+datasets = {
+    'CIFAR10': torchvision.datasets.CIFAR10(DATA_DIRECTORY, transform=preprocess, download=True),
+    'CIFAR100': torchvision.datasets.CIFAR100(DATA_DIRECTORY, transform=preprocess, download=True)
+}
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torchvision.transforms as transforms  # Import transforms from torchvision
+
+def show_random_images_from_dataset(dataset, num_images=5):
+    random_indices = np.random.randint(0, len(dataset), num_images)
+
+    plt.figure(figsize=(12, 6))
+    for i, idx in enumerate(random_indices):
+        image, label = dataset[idx]
+        # Transpose the image dimensions from (3, 32, 32) to (32, 32, 3)
+        image = np.transpose(image, (1, 2, 0))
+        ax = plt.subplot(1, num_images, i + 1)
+        ax.imshow(image)
+        ax.set_title(f'Label: {label}')
+        ax.axis('off')
+    plt.show()
+
+show_random_images_from_dataset(datasets['CIFAR100'], num_images=5)
+
+model = torchvision.models.squeezenet1_1(pretrained=True).eval()
+
+# authenticate with Pinecone API, keys and environment available at your project at https://app.pinecone.io
+pinecone_api_key = '10753dfa-e00b-4083-a293-6fb6fe077734'
+pinecone.init(api_key=pinecone_api_key, environment='northamerica-northeast1-gcp')
+
+# if the index does not already exist, we create it
+if INDEX_NAME not in pinecone.list_indexes():
+    pinecone.create_index(name=INDEX_NAME, dimension=INDEX_DIMENSION)
+
+# instantiate connection to your Pinecone index
+index = pinecone.Index(INDEX_NAME)
+
+def get_vector_ids(batch_number, batch_size, prefix):
+    """Return vector ids."""
+    start_index = batch_number * batch_size
+    end_index = start_index + batch_size
+    ids = np.arange(start_index, end_index)
+    # create id based on prefix
+    # eg. if id == 5, prefix == 'CIFAR10', then create 'CIFAR10.5' as vector id.
+    ids_with_prefix = map(lambda x: f'{prefix}.{str(x)}', ids)
+    return ids_with_prefix
+
+def get_vector_metadata(label_indices, class_list):
+    """Return list of {'label': <class name>}."""
+    get_class_name = lambda index: {'label': class_list[index]}
+    return map(get_class_name, label_indices)
+
+def get_vectors_from_batch(preprocessed_data, label_indices, batch_number, dataset):
+    """Return list of tuples like (vector_id, vector_values, vector_metadata)."""
+    num_records = len(preprocessed_data)
+    prefix = dataset._class.name_
+    with torch.no_grad():
+        # generate image embeddings with PyTorch model
+        vector_values = model(preprocessed_data).tolist()
+    # return respective IDs/metadata for each image embedding
+    vector_metadata = get_vector_metadata(label_indices, dataset.classes)
+    vector_ids = get_vector_ids(batch_number, num_records, prefix)
+    return list(zip(vector_ids, vector_values, vector_metadata))
+
+def upsert_image_embeddings(dataset, pinecone_index, batch_size=BATCH_SIZE, num_rows=None):
+    """Iterate through dataset, generate embeddings and upsert in batches to Pinecone index.
+
+    Args:
+     - dataset: a PyTorch Dataset
+     - pinecone_index: your Pinecone index
+     - batch_size: batch size
+     - num_rows: Number of initial rows to use of dataset, use all rows if None.
+    """
+    if num_rows > len(dataset):
+        raise ValueError(f'`num_rows` should not exceed length of dataset: {len(dataset)}')
+    if num_rows:
+        sampler = range(num_rows)
+    else:
+        sampler = None
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, sampler=sampler)
+    tqdm_kwargs = h.get_tqdm_kwargs(dataloader)
+    for batch_number, (data, label_indices) in tqdm.notebook.tqdm(enumerate(dataloader), **tqdm_kwargs):
+        vectors = get_vectors_from_batch(
+            data,
+            label_indices,
+            batch_number,
+            dataloader.dataset)
+        pinecone_index.upsert(vectors)
+
+from tqdm.notebook import tqdm
+import torch
+
+# Assuming preprocess is a transform that converts to tensor
+# Modify this according to your preprocess transform
+preprocess = transforms.Compose([
+    transforms.ToTensor(),  # Convert to tensor
+    # Add other transformations you need
+])
+
+# Rest of the code...
+
+def custom_collate(batch):
+    data = [preprocess(item[0]) for item in batch]  # Preprocess images into tensors
+    label_indices = [item[1] for item in batch]
+    return torch.stack(data), label_indices
+
+def upsert_image_embeddings(dataset, pinecone_index, batch_size=BATCH_SIZE, num_rows=None):
+    # Rest of the code...
+
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=sampler, collate_fn=custom_collate)
+    for batch_number, (data, label_indices) in tqdm(enumerate(dataloader), total=len(dataloader)):
+        vectors = get_vectors_from_batch(data, label_indices, batch_number * batch_size, dataset)
+        pinecone_index.upsert(vectors)
+
+# Rest of the code...
+url = 'https://images.pexels.com/photos/1643457/pexels-photo-1643457.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2'
+r = requests.get(url, stream=True)
+query_image = Image.open(r.raw)
+# Display a Markdown message
+from IPython.display import display, Markdown
+
+# Markdown message
+markdown_message = "#### A sample image"
+
+# Display the Markdown message
+display(Markdown(markdown_message))
+
+# Display the image
+query_image.resize((125, 125))
+from PIL import Image
+import requests
+import torch
+
+# Load the query image
+url = 'https://images.pexels.com/photos/1643457/pexels-photo-1643457.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2'
+r = requests.get(url, stream=True)
+query_image = Image.open(r.raw)
+
+# Preprocess the query image and obtain the embedding
+# Replace this with your actual preprocessing logic
+def preprocess_image(image):
+  preprocess_fn = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
+  return preprocess_fn(image)
+
+    # Your preprocessing logic here
+    # Convert image to tensor, resize, normalize, etc.
+
+
+# Preprocess the query image
+query_tensor = preprocess_image(query_image).unsqueeze(0)
+
+# Obtain the embedding for the query
+query_embedding = model(query_tensor).tolist()
+
+# Query the Pinecone index
+response = index.query(queries=query_embedding, top_k=4, include_metadata=True)
+
+# Print a formatted sample response from Pinecone
+print("#### A sample response from Pinecone\n============")
+print("python")
+print(response)
+print("")
+
+def show_response_as_grid(response, datasets, nrows, ncols, **subplot_kwargs):
+    fig, axes = plt.subplots(nrows, ncols, **subplot_kwargs)
+    fig.tight_layout()
+    iter_response = get_response_information(response)
+    iter_images = zip(*[*iter_response, axes.flat])
+    for dataset_name, row, score, metadata, ax in iter_images:
+        result_array = datasets[dataset_name].data[row]
+        ax.imshow(result_array)
+        ax.set_title(
+            f'{dataset_name}: {metadata["label"]}\nsimilarity: {score:.4}'
+        )
+        ax.axis("off")
+
+def get_response_information(response):
+    """Return dataset, ids, and scores from Pinecone query response."""
+    ids, scores, metadatas = _get_ids_scores_metadatas(response)
+    datasets, rows = list(zip(*[id_.split('.') for id_ in ids]))
+    return datasets, map(int, rows), scores, metadatas
+
+def _get_ids_scores_metadatas(response):
+    """Return ids and scores from Pinecone query response."""
+    matches = response['results'][0]['matches']
+    ids, scores, metadatas = zip(*[(
+        match['id'],
+        match['score'],
+        match['metadata']
+    ) for match in matches])
+    return list(ids), list(scores), list(metadatas)
+
+show_response_as_grid(response, datasets, 1, 4, figsize=(10, 10))
