@@ -1,6 +1,5 @@
 import streamlit as st
 
-
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -14,28 +13,62 @@ st.markdown(
         text-align: center;
         color: #a4d5db;
     }
+    .upload-button {
+        background-color: #008CBA;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .upload-button:hover {
+        background-color: #005F81;
+    }
+    .green-title {
+        text-align: center;
+        color: #e386a0;
+        font-size: 50px;
+    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-st.title("Ad generating GenAI Model")
+st.markdown('<h1 class="green-title">AD GENERATING GenAI MODEL</h1>', unsafe_allow_html=True)
+
 st.subheader("How AI can revolutionize your advertising strategy")
 st.write(
     "The benefits of using AI to generate ads, such as saving time, money, and resources, as well as increasing conversions, engagement, and brand awareness."
 )
 
-# User input for prompts
+
+image_url = st.text_input("Enter your image URL", placeholder="https://example.com/your-image.jpg")
+
+
+if st.button("Upload Image URL", key="upload_button"):
+    if not image_url:
+        st.warning("Please enter an image URL.")
+    else:
+        # Use the entered image URL for image generation or display
+        # Example: st.image(image_url, use_column_width=True, caption="Generated Image")
+        pass
+
+uploaded_file = st.file_uploader("Upload Image URL", type=["jpg", "png", "jpeg"])
+
 prompt = st.text_input("Enter your prompt", "")
 negative_prompt = st.text_input("Enter a negative prompt", "")
 
 def generate_image(prompt, negative_prompt):
-    # Generate or load the image
-    # Example: st.image("ads.png", use_column_width=True, caption="Generated Image")
-    pass
+    # Generate or load the image using the provided image_url
+    if st.button("Generate Image", key="generate_button", on_click=generate_image):
+        if not image_url:
+            st.warning("Please enter an image URL or upload an image.")
+        else:
+            # Generate or display the image using image_url
+            # Example: st.image(image_url, use_column_width=True, caption="Generated Image")
+            pass
 
-if st.button("Generate Image"):
-    generate_image(prompt, negative_prompt)
+generate_image(prompt, negative_prompt)
 
 st.subheader("Generated Output:")
 st.image("n.jpg", use_column_width=True, caption="Generated Image")
@@ -46,7 +79,6 @@ with st.container():
     st.write(
         "The benefits of using AI to generate ads, such as saving time, money, and resources, as well as increasing conversions, engagement, and brand awareness."
     )
-
 
 with st.container():
     st.markdown(
